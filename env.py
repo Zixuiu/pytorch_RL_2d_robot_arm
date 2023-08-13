@@ -4,7 +4,7 @@ import pyglet
 
 class ArmEnv(object):
     viewer = None
-    dt = .1    # refresh rate
+    dt = .1    # 刷新率
     action_bound = [-1, 1]
     goal = {'x': 100., 'y': 100., 'l': 40}
     state_dim = 9
@@ -13,27 +13,27 @@ class ArmEnv(object):
     def __init__(self):
         self.arm_info = np.zeros(
             2, dtype=[('l', np.float32), ('r', np.float32)])
-        self.arm_info['l'] = 100        # 2 arms length
-        self.arm_info['r'] = np.pi/6    # 2 angles information
+        self.arm_info['l'] = 100        # 两个手臂的长度
+        self.arm_info['r'] = np.pi/6    # 两个角度信息
         self.on_goal = 0
 
     def step(self, action):
         done = False
         action = np.clip(action, *self.action_bound)
         self.arm_info['r'] += action * self.dt
-        self.arm_info['r'] %= np.pi * 2    # normalize
+        self.arm_info['r'] %= np.pi * 2    # 规范化
 
-        (a1l, a2l) = self.arm_info['l']  # radius, arm length
-        (a1r, a2r) = self.arm_info['r']  # radian, angle
-        a1xy = np.array([200., 200.])    # a1 start (x0, y0)
-        a1xy_ = np.array([np.cos(a1r), np.sin(a1r)]) * a1l + a1xy  # a1 end and a2 start (x1, y1)
-        finger = np.array([np.cos(a1r + a2r), np.sin(a1r + a2r)]) * a2l + a1xy_  # a2 end (x2, y2)
-        # normalize features
+        (a1l, a2l) = self.arm_info['l']  # 半径，手臂长度
+        (a1r, a2r) = self.arm_info['r']  # 弧度，角度
+        a1xy = np.array([200., 200.])    # a1起点坐标 (x0, y0)
+        a1xy_ = np.array([np.cos(a1r), np.sin(a1r)]) * a1l + a1xy  # a1终点和a2起点坐标 (x1, y1)
+        finger = np.array([np.cos(a1r + a2r), np.sin(a1r + a2r)]) * a2l + a1xy_  # a2终点坐标 (x2, y2)
+        # 规范化特征
         dist1 = [(self.goal['x'] - a1xy_[0]) / 400, (self.goal['y'] - a1xy_[1]) / 400]
         dist2 = [(self.goal['x'] - finger[0]) / 400, (self.goal['y'] - finger[1]) / 400]
         r = -np.sqrt(dist2[0]**2+dist2[1]**2)
 
-        # done and reward
+        # 完成和奖励
         if self.goal['x'] - self.goal['l']/2 < finger[0] < self.goal['x'] + self.goal['l']/2:
             if self.goal['y'] - self.goal['l']/2 < finger[1] < self.goal['y'] + self.goal['l']/2:
                 r += 1.
@@ -43,7 +43,7 @@ class ArmEnv(object):
         else:
             self.on_goal = 0
 
-        # state
+        # 状态
         s = np.concatenate((a1xy_/200, finger/200, dist1 + dist2, [1. if self.on_goal else 0.]))
         return s, r, done
 
@@ -52,15 +52,15 @@ class ArmEnv(object):
         self.goal['y'] = np.random.rand()*400.
         self.arm_info['r'] = 2 * np.pi * np.random.rand(2)
         self.on_goal = 0
-        (a1l, a2l) = self.arm_info['l']  # radius, arm length
-        (a1r, a2r) = self.arm_info['r']  # radian, angle
-        a1xy = np.array([200., 200.])  # a1 start (x0, y0)
-        a1xy_ = np.array([np.cos(a1r), np.sin(a1r)]) * a1l + a1xy  # a1 end and a2 start (x1, y1)
-        finger = np.array([np.cos(a1r + a2r), np.sin(a1r + a2r)]) * a2l + a1xy_  # a2 end (x2, y2)
-        # normalize features
+        (a1l, a2l) = self.arm_info['l']  # 半径，手臂长度
+        (a1r, a2r) = self.arm_info['r']  # 弧度，角度
+        a1xy = np.array([200., 200.])  # a1起点坐标 (x0, y0)
+        a1xy_ = np.array([np.cos(a1r), np.sin(a1r)]) * a1l + a1xy  # a1终点和a2起点坐标 (x1, y1)
+        finger = np.array([np.cos(a1r + a2r), np.sin(a1r + a2r)]) * a2l + a1xy_  # a2终点坐标 (x2, y2)
+        # 规范化特征
         dist1 = [(self.goal['x'] - a1xy_[0])/400, (self.goal['y'] - a1xy_[1])/400]
         dist2 = [(self.goal['x'] - finger[0])/400, (self.goal['y'] - finger[1])/400]
-        # state
+        # 状态
         s = np.concatenate((a1xy_/200, finger/200, dist1 + dist2, [1. if self.on_goal else 0.]))
         return s
 
@@ -70,38 +70,38 @@ class ArmEnv(object):
         self.viewer.render()
 
     def sample_action(self):
-        return np.random.rand(2)-0.5    # two radians
+        return np.random.rand(2)-0.5    # 两个弧度
 
 
 class Viewer(pyglet.window.Window):
     bar_thc = 5
 
     def __init__(self, arm_info, goal):
-        # vsync=False to not use the monitor FPS, we can speed up training
+        # vsync=False 不使用显示器的FPS，可以加快训练速度
         super(Viewer, self).__init__(width=400, height=400, resizable=False, caption='Arm', vsync=False)
         pyglet.gl.glClearColor(1, 1, 1, 1)
         self.arm_info = arm_info
         self.goal_info = goal
         self.center_coord = np.array([200, 200])
 
-        self.batch = pyglet.graphics.Batch()    # display whole batch at once
+        self.batch = pyglet.graphics.Batch()    # 一次性显示整个batch
         self.goal = self.batch.add(
-            4, pyglet.gl.GL_QUADS, None,    # 4 corners
-            ('v2f', [goal['x'] - goal['l'] / 2, goal['y'] - goal['l'] / 2,                # location
+            4, pyglet.gl.GL_QUADS, None,    # 4个顶点
+            ('v2f', [goal['x'] - goal['l'] / 2, goal['y'] - goal['l'] / 2,                # 位置
                      goal['x'] - goal['l'] / 2, goal['y'] + goal['l'] / 2,
                      goal['x'] + goal['l'] / 2, goal['y'] + goal['l'] / 2,
                      goal['x'] + goal['l'] / 2, goal['y'] - goal['l'] / 2]),
-            ('c3B', (86, 109, 249) * 4))    # color
+            ('c3B', (86, 109, 249) * 4))    # 颜色
         self.arm1 = self.batch.add(
             4, pyglet.gl.GL_QUADS, None,
-            ('v2f', [250, 250,                # location
+            ('v2f', [250, 250,                # 位置
                      250, 300,
                      260, 300,
                      260, 250]),
-            ('c3B', (249, 86, 86) * 4,))    # color
+            ('c3B', (249, 86, 86) * 4,))    # 颜色
         self.arm2 = self.batch.add(
             4, pyglet.gl.GL_QUADS, None,
-            ('v2f', [100, 150,              # location
+            ('v2f', [100, 150,              # 位置
                      100, 160,
                      200, 160,
                      200, 150]), ('c3B', (249, 86, 86) * 4,))
@@ -118,19 +118,19 @@ class Viewer(pyglet.window.Window):
         self.batch.draw()
 
     def _update_arm(self):
-        # update goal
+        # 更新目标
         self.goal.vertices = (
             self.goal_info['x'] - self.goal_info['l']/2, self.goal_info['y'] - self.goal_info['l']/2,
             self.goal_info['x'] + self.goal_info['l']/2, self.goal_info['y'] - self.goal_info['l']/2,
             self.goal_info['x'] + self.goal_info['l']/2, self.goal_info['y'] + self.goal_info['l']/2,
             self.goal_info['x'] - self.goal_info['l']/2, self.goal_info['y'] + self.goal_info['l']/2)
 
-        # update arm
-        (a1l, a2l) = self.arm_info['l']     # radius, arm length
-        (a1r, a2r) = self.arm_info['r']     # radian, angle
-        a1xy = self.center_coord            # a1 start (x0, y0)
-        a1xy_ = np.array([np.cos(a1r), np.sin(a1r)]) * a1l + a1xy   # a1 end and a2 start (x1, y1)
-        a2xy_ = np.array([np.cos(a1r+a2r), np.sin(a1r+a2r)]) * a2l + a1xy_  # a2 end (x2, y2)
+        # 更新手臂
+        (a1l, a2l) = self.arm_info['l']     # 半径，手臂长度
+        (a1r, a2r) = self.arm_info['r']     # 弧度，角度
+        a1xy = self.center_coord            # a1起点坐标 (x0, y0)
+        a1xy_ = np.array([np.cos(a1r), np.sin(a1r)]) * a1l + a1xy   # a1终点和a2起点坐标 (x1, y1)
+        a2xy_ = np.array([np.cos(a1r+a2r), np.sin(a1r+a2r)]) * a2l + a1xy_  # a2终点坐标 (x2, y2)
 
         a1tr, a2tr = np.pi / 2 - self.arm_info['r'][0], np.pi / 2 - self.arm_info['r'].sum()
         xy01 = a1xy + np.array([-np.cos(a1tr), np.sin(a1tr)]) * self.bar_thc
@@ -146,7 +146,7 @@ class Viewer(pyglet.window.Window):
         self.arm1.vertices = np.concatenate((xy01, xy02, xy11, xy12))
         self.arm2.vertices = np.concatenate((xy11_, xy12_, xy21, xy22))
 
-    # convert the mouse coordinate to goal's coordinate
+    # 将鼠标坐标转换为目标坐标
     def on_mouse_motion(self, x, y, dx, dy):
         self.goal_info['x'] = x
         self.goal_info['y'] = y
