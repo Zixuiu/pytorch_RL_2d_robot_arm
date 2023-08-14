@@ -6,6 +6,8 @@ import torch.optim as optim
 import numpy as np
 import time
 
+#代码实现DDPG算法
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 directory='model/'
 
